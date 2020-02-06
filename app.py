@@ -25,19 +25,10 @@ db = SQLAlchemy(app)
 
 migrate = Migrate(app, db)
 
+
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
-venue_genres = db.Table(
-    'venue_genres', db.Column('venue_id', db.Integer, db.ForeignKey('venues.id'), primary_key=True),
-    db.Column('genre_id', db.Integer, db.ForeignKey('genres.id'), primary_key=True))
-
-artist_genres = db.Table(
-    'artist_genres',
-    db.Column('artist_id', db.Integer, db.ForeignKey('artists.id'), primary_key=True),
-    db.Column('genre_id', db.Integer, db.ForeignKey('genres.id'), primary_key=True))
-
-
 class Venue(db.Model):
     __tablename__ = 'venues'
 
@@ -52,9 +43,7 @@ class Venue(db.Model):
     website = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    genres = db.relationship('Genre',
-                             secondary=venue_genres,
-                             backref=db.backref('venues', lazy=True))
+    genres = db.relationship('VenueGenre', backref='venue', lazy=True)
     shows = db.relationship('Show', backref='venue', lazy=True)
 
 
@@ -72,8 +61,9 @@ class Artist(db.Model):
     website = db.Column(db.String(120))
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
-    genres = db.relationship('Genre', secondary=artist_genres, backref=db.backref('artists', lazy=True))
+    genres = db.relationship('ArtistGenre', backref='artist', lazy=True)
     shows = db.relationship('Shows', backref='artist', lazy=True)
+
 
 class Show(db.Model):
     __tablename__ = 'shows'
@@ -83,11 +73,21 @@ class Show(db.Model):
     venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
     artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
 
-class Genre(db.Model):
-    __tablename__ = 'genres'
+
+class VenueGenre(db.Model):
+    __tablename__ = 'venue_genres'
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
+    genre_name = db.Column(db.String)
+    vanue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
+
+
+class ArtistGenre(db.Model):
+    __tablename__ = 'artist_genres'
+
+    id = db.Column(db.Integer, primary_key=True)
+    genre_name = db.Column(db.String)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
 
 
 #----------------------------------------------------------------------------#
