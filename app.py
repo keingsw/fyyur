@@ -62,7 +62,7 @@ class Artist(db.Model):
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.String)
     genres = db.relationship('ArtistGenre', backref='artist', lazy=True)
-    shows = db.relationship('Shows', backref='artist', lazy=True)
+    shows = db.relationship('Show', backref='artist', lazy=True)
 
 
 class Show(db.Model):
