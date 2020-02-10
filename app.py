@@ -176,9 +176,14 @@ def show_venue(venue_id):
     genres = [venue_genre.genre_name for venue_genre in venue.genres]
 
     current_time = datetime.now()
-    query_past_shows = Show.query.filter(Show.venue_id == venue_id, Show.start_time <= current_time)
-    query_upcoming_shows = Show.query.filter(Show.venue_id == venue_id,
-                                             Show.start_time > current_time)
+    query_past_shows = Show.query.join(Artist).with_entities(
+        Show.artist_id, Artist.name.label('artist_name'),
+        Artist.image_link.label('artist_image_link'),
+        Show.start_time).filter(Show.venue_id == venue_id, Show.start_time <= current_time)
+    query_upcoming_shows = Show.query.join(Artist).with_entities(
+        Show.artist_id, Artist.name.label('artist_name'),
+        Artist.image_link.label('artist_image_link'),
+        Show.start_time).filter(Show.venue_id == venue_id, Show.start_time > current_time)
 
     return render_template('pages/show_venue.html',
                            venue={
@@ -283,10 +288,13 @@ def show_artist(artist_id):
     genres = [artist_genre.genre_name for artist_genre in artist.genres]
 
     current_time = datetime.now()
-    query_past_shows = Show.query.filter(Show.artist_id == artist_id,
-                                         Show.start_time <= current_time)
-    query_upcoming_shows = Show.query.filter(Show.artist_id == artist_id,
-                                             Show.start_time > current_time)
+
+    query_past_shows = Show.query.join(Venue).with_entities(
+        Show.venue_id, Venue.name.label('venue_name'), Venue.image_link.label('venue_image_link'),
+        Show.start_time).filter(Show.artist_id == artist_id, Show.start_time <= current_time)
+    query_upcoming_shows = Show.query.join(Venue).with_entities(
+        Show.venue_id, Venue.name.label('venue_name'), Venue.image_link.label('venue_image_link'),
+        Show.start_time).filter(Show.artist_id == artist_id, Show.start_time > current_time)
 
     return render_template('pages/show_artist.html',
                            artist={
