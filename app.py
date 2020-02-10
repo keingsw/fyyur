@@ -5,6 +5,7 @@ import sys
 import json
 import dateutil.parser
 import babel
+import datetime
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
@@ -121,32 +122,29 @@ def index():
 
 @app.route('/venues')
 def venues():
-    # TODO: replace with real venues data.
-    #       num_shows should be aggregated based on number of upcoming shows per venue.
-    data = [{
-        "city":
-            "San Francisco",
-        "state":
-            "CA",
-        "venues": [{
-            "id": 1,
-            "name": "The Musical Hop",
-            "num_upcoming_shows": 0,
-        }, {
-            "id": 3,
-            "name": "Park Square Live Music & Coffee",
-            "num_upcoming_shows": 1,
-        }]
-    }, {
-        "city": "New York",
-        "state": "NY",
-        "venues": [{
-            "id": 2,
-            "name": "The Dueling Pianos Bar",
-            "num_upcoming_shows": 0,
-        }]
-    }]
-    return render_template('pages/venues.html', areas=data)
+
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    venues = Venue.query.all()
+    group_by_city_and_state = {}
+    for venue in venues:
+        city_and_state = venue.city + '-' + venue.state
+        
+        venue.num_upcoming_shows = Show.query.filter(
+            Show.venue_id > venue.id,
+            Show.start_time > current_time,
+        ).count()
+
+        if city_and_state in group_by_city_and_state.keys():
+            group_by_city_and_state[city_and_state].venues.append(venue)
+        else:
+            group_by_city_and_state[city_and_state] = {
+                'city': venue.city,
+                'state': venue.state,
+                'venues': [venue]
+            }
+
+    return render_template('pages/venues.html', areas=group_by_city_and_state.values())
 
 
 @app.route('/venues/search', methods=['POST'])
