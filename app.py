@@ -118,8 +118,6 @@ def index():
 
 #  Venues
 #  ----------------------------------------------------------------
-
-
 @app.route('/venues')
 def venues():
 
@@ -131,7 +129,7 @@ def venues():
         city_and_state = venue.city + '-' + venue.state
 
         venue.num_upcoming_shows = Show.query.filter(
-            Show.venue_id > venue.id,
+            Show.venue_id == venue.id,
             Show.start_time > current_time,
         ).count()
 
