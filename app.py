@@ -79,7 +79,7 @@ class VenueGenre(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     genre_name = db.Column(db.String)
-    vanue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
 
 
 class ArtistGenre(db.Model):
