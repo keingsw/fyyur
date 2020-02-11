@@ -358,40 +358,59 @@ def edit_artist_submission(artist_id):
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
+    venue = Venue.query.get(venue_id)
+    genres = [venue_genre.genre_name for venue_genre in venue.genres]
+
     form = VenueForm()
-    venue = {
-        "id":
-            1,
-        "name":
-            "The Musical Hop",
-        "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
-        "address":
-            "1015 Folsom Street",
-        "city":
-            "San Francisco",
-        "state":
-            "CA",
-        "phone":
-            "123-123-1234",
-        "website":
-            "https://www.themusicalhop.com",
-        "facebook_link":
-            "https://www.facebook.com/TheMusicalHop",
-        "seeking_talent":
-            True,
-        "seeking_description":
-            "We are on the lookout for a local artist to play every two weeks. Please call us.",
-        "image_link":
-            "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60"
-    }
-    # TODO: populate form with values from venue with ID <venue_id>
+    form.name.default = venue.name
+    form.city.default = venue.city
+    form.state.default = venue.state
+    form.address.default = venue.address
+    form.phone.default = venue.phone
+    form.genres.default = genres
+    form.image_link.default = venue.image_link
+    form.website.default = venue.website
+    form.facebook_link.default = venue.facebook_link
+    form.seeking_talent.default = venue.seeking_talent
+    form.seeking_description.default = venue.seeking_description
+    form.process()
+
     return render_template('forms/edit_venue.html', form=form, venue=venue)
 
 
 @app.route('/venues/<int:venue_id>/edit', methods=['POST'])
 def edit_venue_submission(venue_id):
-    # TODO: take values from the form submitted, and update existing
-    # venue record with ID <venue_id> using the new attributes
+
+    try:
+        VenueGenre.query.filter(VenueGenre.venue_id == venue_id).delete()
+
+        venue = Venue.query.get(venue_id)
+
+        is_seeking_talent_checked = request.form.get('seeking_talent') != None
+        seeking_talent = is_seeking_talent_checked if venue.seeking_talent != is_seeking_talent_checked else venue.seeking_talent
+
+        venue.name = request.form.get('name', venue.name)
+        venue.city = request.form.get('city', venue.city)
+        venue.state = request.form.get('state', venue.state)
+        venue.phone = request.form.get('phone', venue.phone)
+        venue.image_link = request.form.get('image_link', venue.image_link)
+        venue.website = request.form.get('website', venue.website)
+        venue.facebook_link = request.form.get('facebook_link', venue.facebook_link)
+        venue.seeking_talent = seeking_talent
+        venue.seeking_description = request.form.get('seeking_description',
+                                                     venue.seeking_description)
+
+        for genre_name in request.form.getlist('genres'):
+            venue.genres.append(VenueGenre(genre_name=genre_name))
+
+        db.session.commit()
+
+    except:
+        db.session.rollback()
+        print(sys.exc_info())
+    finally:
+        db.session.close()
+
     return redirect(url_for('show_venue', venue_id=venue_id))
 
 
