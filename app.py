@@ -224,7 +224,11 @@ def create_venue_submission():
                   state=request.form.get('state'),
                   address=request.form.get('address'),
                   phone=request.form.get('phone'),
-                  facebook_link=request.form.get('facebook_link'))
+                  image_link=request.form.get('image_link'),
+                  website=request.form.get('website'),
+                  facebook_link=request.form.get('facebook_link'),
+                  seeking_talent=request.form.get('seeking_talent'),
+                  seeking_description=request.form.get('seeking_description'))
 
     for genre_name in request.form.getlist('genres'):
         venue.genres.append(VenueGenre(genre_name=genre_name))
