@@ -37,6 +37,7 @@ class Venue(db.Model):
     name = db.Column(db.String, nullable=False)
     city = db.Column(db.String(120), nullable=False)
     state = db.Column(db.String(120), nullable=False)
+    city_and_state = db.column_property(city + ", " + state)
     address = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(120), nullable=False)
     image_link = db.Column(db.String(500))
@@ -55,6 +56,7 @@ class Artist(db.Model):
     name = db.Column(db.String, nullable=False)
     city = db.Column(db.String(120), nullable=False)
     state = db.Column(db.String(120), nullable=False)
+    city_and_state = db.column_property(city + ", " + state)
     phone = db.Column(db.String(120), nullable=False)
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
@@ -196,7 +198,8 @@ def search_venues():
     current_time = datetime.now()
     search_term = request.form.get('search_term', '')
 
-    query = Venue.query.filter(Venue.name.ilike('%' + search_term + '%'))
+    query = Venue.query.filter(
+        db.or_(Venue.name.ilike('%' + search_term + '%'), Venue.city_and_state == search_term))
     venues = query.all()
 
     for venue in venues:
@@ -321,7 +324,8 @@ def search_artists():
     current_time = datetime.now()
     search_term = request.form.get('search_term', '')
 
-    query = Artist.query.filter(Artist.name.ilike('%' + search_term + '%'))
+    query = Artist.query.filter(
+        db.or_(Artist.name.ilike('%' + search_term + '%'), Artist.city_and_state == search_term))
     artists = query.all()
 
     for artist in artists:
