@@ -5,6 +5,7 @@
 	<div class="col-sm-6">
 		<h1 class="monospace">
 			{{ artist.name }}
+			<a href="/artists/{{ artist.id }}/edit"><span class="fas fa-pen fa-xs" aria-hidden="true"></span></a>
 		</h1>
 		<p class="subtitle">
 			ID: {{ artist.id }}
@@ -38,6 +39,7 @@
 			<i class="fas fa-moon"></i> Not currently seeking performance venues
 		</p>
 		{% endif %}
+
 	</div>
 	<div class="col-sm-6">
 		<img src="{{ artist.image_link }}" alt="Venue Image" />
@@ -71,5 +73,4 @@
 		{% endfor %}
 	</div>
 </section>
-
 {% endblock %}
