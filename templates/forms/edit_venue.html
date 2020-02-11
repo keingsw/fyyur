@@ -57,7 +57,21 @@
       <label for="seeking_description">Seeking Description</label>
       {{ form.seeking_description(class_ = 'form-control', autofocus = true) }}
     </div>
+    <div class="form-group">
+      <a href="#" class="btn btn-danger" id="delete-venue" data-id="{{ venue.id }}">Delete Venue</a>
+    </div>
     <input type="submit" value="Edit Venue" class="btn btn-primary btn-lg btn-block">
   </form>
 </div>
+<script>
+  document.getElementById('delete-venue').onclick = (e) => {
+    e.preventDefault()
+    fetch(`/venues/${e.target.dataset.id}`, {
+      method: 'DELETE'
+    })
+      .then(res => res.json())
+      .then(({ redirect_to }) => window.location.href = redirect_to)
+  }
+</script>
+
 {% endblock %}
