@@ -6,7 +6,7 @@ import json
 import dateutil.parser
 import babel
 import datetime
-from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify
+from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify, abort, session
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 import logging
@@ -62,7 +62,27 @@ class Artist(db.Model):
     seeking_venue = db.Column(db.Boolean, default=False, nullable=False)
     seeking_description = db.Column(db.String)
     genres = db.relationship('ArtistGenre', backref='artist', lazy=True)
-    shows = db.relationship('Show', backref='artist', lazy=True)
+    shows = db.relationship('Show', cascade='all, delete-orphan', backref='artist', lazy=True)
+    available_times = db.relationship('ArtistAvailableTime',
+                                      cascade='all, delete-orphan',
+                                      backref='artist',
+                                      lazy=True)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializable format"""
+        return {
+            'id': self.id,
+            'name': self.name,
+            'city': self.city,
+            'state': self.state,
+            'phone': self.phone,
+            'image_link': self.image_link,
+            'facebook_link': self.facebook_link,
+            'website': self.website,
+            'seeking_venue': self.seeking_venue,
+            'seeking_description': self.seeking_description,
+        }
 
 
 class Show(db.Model):
@@ -88,6 +108,27 @@ class ArtistGenre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     genre_name = db.Column(db.String)
     artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
+
+
+class ArtistAvailableTime(db.Model):
+    __tablename__ = 'artist_available_times'
+
+    id = db.Column(db.Integer, primary_key=True)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    time_from = db.Column(db.Time, nullable=False)
+    time_to = db.Column(db.Time, nullable=False)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializable format"""
+        return {
+            'id': self.id,
+            'artist_id': self.artist_id,
+            'date': self.date.strftime("%Y/%m/%d"),
+            'time_from': self.time_from.strftime("%H:%M"),
+            'time_to': self.time_to.strftime("%H:%M")
+        }
 
 
 #----------------------------------------------------------------------------#
@@ -310,24 +351,65 @@ def show_artist(artist_id):
         Show.venue_id, Venue.name.label('venue_name'), Venue.image_link.label('venue_image_link'),
         Show.start_time).filter(Show.artist_id == artist_id, Show.start_time > current_time)
 
-    return render_template('pages/show_artist.html',
-                           artist={
-                               "id": artist.id,
-                               "name": artist.name,
-                               "genres": genres,
-                               "city": artist.city,
-                               "state": artist.state,
-                               "phone": artist.phone,
-                               "website": artist.website,
-                               "facebook_link": artist.facebook_link,
-                               "seeking_venue": artist.seeking_venue,
-                               "seeking_description": artist.seeking_description,
-                               "image_link": artist.image_link,
-                               "past_shows": query_past_shows.all(),
-                               "upcoming_shows": query_upcoming_shows.all(),
-                               "past_shows_count": query_past_shows.count(),
-                               "upcoming_shows_count": query_upcoming_shows.count()
-                           })
+    return render_template(
+        'pages/show_artist.html',
+        artist={
+            "id":
+                artist.id,
+            "name":
+                artist.name,
+            "genres":
+                genres,
+            "city":
+                artist.city,
+            "state":
+                artist.state,
+            "phone":
+                artist.phone,
+            "website":
+                artist.website,
+            "facebook_link":
+                artist.facebook_link,
+            "seeking_venue":
+                artist.seeking_venue,
+            "seeking_description":
+                artist.seeking_description,
+            "image_link":
+                artist.image_link,
+            "past_shows":
+                query_past_shows.all(),
+            "upcoming_shows":
+                query_upcoming_shows.all(),
+            "past_shows_count":
+                query_past_shows.count(),
+            "upcoming_shows_count":
+                query_upcoming_shows.count(),
+            "available_times": [
+                available_time.serialize for available_time in artist.available_times
+            ]
+        })
+
+
+@app.route('/artists/<int:artist_id>/available_times')
+def get_artist_available_times(artist_id):
+
+    seeking_venue_only = request.args.get('seeking_venue_only')
+    response = {'artist': None, 'available_times': []}
+
+    artist = Artist.query.get(artist_id)
+    response['artist'] = artist.serialize if artist != None else None
+
+    if artist != None and artist.seeking_venue == True:
+
+        query = ArtistAvailableTime.query.filter(
+            ArtistAvailableTime.artist_id == artist_id).order_by(ArtistAvailableTime.date,
+                                                                 ArtistAvailableTime.time_from)
+        if seeking_venue_only:
+            query.join(Artist).filter(Artist.seeking_venue == True)
+
+        response['available_times'] = [available_time.serialize for available_time in query.all()]
+
+    return jsonify(response)
 
 
 #  Update
@@ -356,37 +438,64 @@ def edit_artist(artist_id):
 @app.route('/artists/<int:artist_id>/edit', methods=['POST'])
 def edit_artist_submission(artist_id):
 
+    error = False
+
     try:
+        input = request.get_json()
+
         ArtistGenre.query.filter(ArtistGenre.artist_id == artist_id).delete()
 
         artist = Artist.query.get(artist_id)
 
-        is_seeking_venue_checked = request.form.get('seeking_venue') != None
-        seeking_venue = is_seeking_venue_checked if artist.seeking_venue != is_seeking_venue_checked else artist.seeking_venue
+        artist.name = input['name']
+        artist.city = input['city']
+        artist.state = input['state']
+        artist.phone = input['phone']
+        artist.image_link = input['image_link']
+        artist.website = input['website']
+        artist.facebook_link = input['facebook_link']
+        artist.seeking_venue = input['seeking_venue']
+        artist.seeking_description = input['seeking_description']
 
-        artist.name = request.form.get('name', artist.name)
-        artist.city = request.form.get('city', artist.city)
-        artist.state = request.form.get('state', artist.state)
-        artist.phone = request.form.get('phone', artist.phone)
-        artist.image_link = request.form.get('image_link', artist.image_link)
-        artist.website = request.form.get('website', artist.website)
-        artist.facebook_link = request.form.get('phone', artist.facebook_link)
-        artist.seeking_venue = seeking_venue
-        artist.seeking_description = request.form.get('seeking_description',
-                                                      artist.seeking_description)
-
-        for genre_name in request.form.getlist('genres'):
+        for genre_name in input['genres']:
             artist.genres.append(ArtistGenre(genre_name=genre_name))
+
+        for available_time_input in input['available_times']:
+
+            time_from = available_time_input['time_from']
+            time_from = '00:00' if time_from == '' else time_from
+
+            time_to = available_time_input['time_to']
+            time_to = '23:59' if time_to == '' else time_to
+
+            if 'id' in available_time_input:
+                available_time = ArtistAvailableTime.query.get(available_time_input['id'])
+
+                if available_time_input['is_deleted']:
+                    db.session.delete(available_time)
+                else:
+                    available_time.date = available_time_input['date']
+                    available_time.time_from = time_from
+                    available_time.time_to = time_to
+            else:
+                artist.available_times.append(
+                    ArtistAvailableTime(date=available_time_input['date'],
+                                        time_from=time_from,
+                                        time_to=time_to))
 
         db.session.commit()
 
     except:
+        error = True
         db.session.rollback()
         print(sys.exc_info())
     finally:
         db.session.close()
 
-    return redirect(url_for('show_artist', artist_id=artist_id))
+    if error:
+        abort(500)
+    else:
+        return jsonify({"redirect_to": url_for('show_artist', artist_id=artist_id)})
 
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
@@ -506,21 +615,50 @@ def shows():
 
 @app.route('/shows/create')
 def create_shows():
+
     # renders form. do not touch.
+    subbmited = session.get('create_show')
     form = ShowForm()
+    print(subbmited)
+    if subbmited:
+        form.artist_id.default = subbmited['artist_id']
+        form.venue_id.default = subbmited['venue_id']
+        form.start_time.default = datetime.strptime(subbmited['start_time'], '%Y-%m-%d %H:%M:%S')
+        session.pop('create_show')
+    else:
+        form.artist_id.default = request.args.get('artist_id')
+
+    form.process()
+
     return render_template('forms/new_show.html', form=form)
 
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
-    show = Show(artist_id=request.form.get('artist_id'),
-                venue_id=request.form.get('venue_id'),
-                start_time=request.form.get('start_time'))
 
     try:
-        db.session.add(show)
-        db.session.commit()
-        flash('Show was successfully listed!')
+        artist_id = request.form.get('artist_id')
+        start_time = datetime.strptime(request.form.get('start_time'), '%Y-%m-%d %H:%M:%S')
+
+        is_artist_available = ArtistAvailableTime.query.join(Artist).filter(
+            Artist.seeking_venue == True, ArtistAvailableTime.artist_id == artist_id,
+            ArtistAvailableTime.date == start_time.strftime('%Y-%m-%d'),
+            ArtistAvailableTime.time_from <= start_time.strftime('%H:%M:%S'),
+            ArtistAvailableTime.time_to >= start_time.strftime('%H:%M:%S')).count() > 0
+
+        if not is_artist_available.count():
+            flash('Artist is not available for the `Start Time`.')
+            session['create_show'] = request.form
+            return redirect(url_for('create_shows'))
+
+        else:
+            show = Show(artist_id=artist_id,
+                        venue_id=request.form.get('venue_id'),
+                        start_time=request.form.get('start_time'))
+
+            db.session.add(show)
+            db.session.commit()
+            flash('Show was successfully listed!')
     except:
         db.session.rollback()
         print(sys.exc_info())

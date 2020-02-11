@@ -33,6 +33,15 @@
 			<div class="description">
 				<i class="fas fa-quote-left"></i> {{ artist.seeking_description }} <i class="fas fa-quote-right"></i>
 			</div>
+			<div class="available-times">
+				<h5>Availability</h5>
+				<ul>
+					{% for available_time in artist.available_times %}
+					<li>{{ available_time.date }} {{ available_time.time_from }} - {{ available_time.time_to }}</li>
+					{% endfor %}
+				</ul>
+			</div>
+			<p><a class="btn btn-primary" href="/shows/create?artist_id={{artist.id}}">Book A Show</a></p>
 		</div>
 		{% else %}
 		<p class="not-seeking">

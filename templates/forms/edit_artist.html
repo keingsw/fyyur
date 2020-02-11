@@ -1,8 +1,10 @@
 {% extends 'layouts/main.html' %}
 {% block title %}Edit Artist{% endblock %}
 {% block content %}
+<div id="error-msg" class="alert alert-danger hidden">Something went wrong. Try again later.</div>
 <div class="form-wrapper">
   <form class="form" method="post" action="/artists/{{artist.id}}/edit">
+    <input type="hidden" name="id" value="{{ artist.id }}" />
     <h3 class="form-heading">Edit artist <em>{{ artist.name }}</em></h3>
     <div class="form-group">
       <label for="name">Name</label>
@@ -50,10 +52,150 @@
       </div>
     </div>
     <div class="form-group">
+      <label>Availability</label>
+      <table id="available-times" class="table table-striped table-condensed">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Date</th>
+            <th>From</th>
+            <th>To</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="template hidden" id="availability-tempalate">
+            <td class="text-center"><a href="#" class="delete-available-time">x</a></td>
+            <td>{{ form.available_date(class_ = 'form-control', autofocus = true, placeholder="yyyy/mm/dd") }}</td>
+            <td>{{ form.available_time_from(class_ = 'form-control', autofocus = true, placeholder="00:00") }}</td>
+            <td>{{ form.available_time_to(class_ = 'form-control', autofocus = true, placeholder="23:59") }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <a href="#" id="add-availability"><i class="fas fa-plus-circle"></i> Add availablity</a>
+    </div>
+    <div class="form-group">
       <label for="seeking_description">Seeking Description</label>
       {{ form.seeking_description(class_ = 'form-control', autofocus = true) }}
     </div>
     <input type="submit" value="Edit Artist" class="btn btn-primary btn-lg btn-block">
   </form>
 </div>
+<script>
+  const artistId = document.querySelector('[name="id"]').value;
+  const availableTimesTable = document.getElementById('available-times');
+  const availableTimeBtn = document.getElementById('add-availability');
+  const errorMsg = document.getElementById('error-msg');
+
+  const getAvailableTimeRows = () => availableTimesTable.querySelectorAll('tbody tr:not(.template)');
+  const renderAvailableTime = (AvailableTime = {}) => {
+    const index = getAvailableTimeRows().length;
+    const newRow = document.getElementById('availability-tempalate').cloneNode(true);
+
+    newRow.id = '';
+    newRow.className = 'available-time';
+    newRow.dataset.id = AvailableTime.id;
+
+    newRow.querySelector('.delete-available-time').dataset.id = AvailableTime.id;
+
+    ['date', 'time_from', 'time_to'].forEach(fieldName => {
+      const input = newRow.querySelector(`[name="available_${fieldName}"]`);
+      input.id += `_${index}`;
+      input.name += `_${index}`;
+      input.value = AvailableTime[fieldName];
+    })
+
+    newRow.querySelector('.delete-available-time').addEventListener('click', (e) => {
+      e.preventDefault();
+      handleDeleteClick(AvailableTime.id);
+    });
+
+    availableTimesTable.querySelector('tbody').append(newRow);
+  };
+  const showErrorMsg = () => {
+    errorMsg.className = 'alert alert-danger'
+  }
+  const hideErrorMsg = () => {
+    errorMsg.className = 'alert alert-danger hidden'
+  }
+  const serializeAvailableTimes = () => {
+    return Array.from(getAvailableTimeRows()).map(tr => {
+      return {
+        id: tr.dataset.id,
+        date: tr.querySelector('input[name^="available_date"]').value,
+        time_from: tr.querySelector('input[name^="available_time_from"]').value,
+        time_to: tr.querySelector('input[name^="available_time_to"]').value,
+        is_deleted: tr.dataset.isDeleted === '1',
+      }
+    })
+  }
+
+  const handleAddClick = () => {
+    renderAvailableTime()
+  }
+
+  const handleDeleteClick = (id) => {
+    const tr = availableTimesTable.querySelector(`tr[data-id="${id}"]`);
+    tr.dataset['isDeleted'] = 1;
+    tr.className = 'available-time hidden';
+  }
+
+  const handleSubmit = (e) => {
+    hideErrorMsg();
+    fetch(`/artists/${artistId}/edit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: document.querySelector('[name="name"]').value,
+        city: document.querySelector('[name="city"]').value,
+        state: document.querySelector('[name="state"]').value,
+        phone: document.querySelector('[name="phone"]').value,
+        genres: Array.from(document.querySelectorAll('[name="genres"] :checked')).map(option => option.value),
+        image_link: document.querySelector('[name="image_link"]').value,
+        website: document.querySelector('[name="website"]').value,
+        facebook_link: document.querySelector('[name="facebook_link"]').value,
+        seeking_venue: document.querySelector('[name="seeking_venue"]').checked,
+        seeking_description: document.querySelector('[name="seeking_description"]').value,
+        available_times: serializeAvailableTimes(),
+      }),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(res => res.json())
+      .then(({ redirect_to }) => {
+        window.location.href = redirect_to;
+      })
+      .catch(e => {
+        showErrorMsg();
+      });
+  }
+
+  availableTimeBtn.onclick = (e) => {
+    e.preventDefault();
+    handleAddClick()
+  }
+
+  fetch(`/artists/${artistId}/available_times`)
+    .then(res => res.json())
+    .then(({ available_times }) => {
+      available_times.forEach(AvailableTime => renderAvailableTime(AvailableTime));
+
+      if (getAvailableTimeRows().length < 1) {
+        availableTimeBtn.click();
+      }
+    })
+    .catch(e => {
+      console.log(e);
+      showErrorMsg();
+    })
+
+  document.querySelector('input[type="submit"]').onclick = (e) => {
+    e.preventDefault();
+    handleSubmit();
+  }
+
+  document.querySelectorAll('input[type="submit"]').onclick = (e) => {
+    e.preventDefault();
+    handleSubmit();
+  }
+</script>
 {% endblock %}

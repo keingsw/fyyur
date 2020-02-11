@@ -8,6 +8,10 @@
       <label for="artist_id">Artist ID</label>
       <small>ID can be found on the Artist's Page</small>
       {{ form.artist_id(class_ = 'form-control', autofocus = true) }}
+      <div id="artist-info" class="alert alert-info" style="margin-top: 8px">
+        <h5 class="artist-name"></h5>
+        <ul class="artist-availability"></ul>
+      </div>
     </div>
     <div class="form-group">
       <label for="venue_id">Venue ID</label>
@@ -18,12 +22,56 @@
       <label for="start_time">Start Time</label>
       {{ form.start_time(class_ = 'form-control', placeholder='YYYY-MM-DD HH:MM', autofocus = true) }}
     </div>
-    <input type="submit" value="Create Show" class="btn btn-primary btn-lg btn-block">
+    <input type="submit" name="submit" value="Create Show" class="btn btn-primary btn-lg btn-block">
   </form>
 </div>
 <script>
+  const renderArtistAvailability = ({ artist, available_times } = {}) => {
+
+    const artistInfo = document.getElementById('artist-info');
+
+    if (!artist) {
+      artistInfo.className = 'hidden'
+      return;
+    } else {
+      artistInfo.className = 'alert alert-info'
+    }
+
+    artistInfo.querySelector('.artist-name').innerHTML = artist.name;
+
+    artistInfo.querySelector('.artist-availability').innerHTML = '';
+    if (available_times.length < 1) {
+      const li = document.createElement('li');
+      li.innerHTML = 'No Available Time';
+      artistInfo.querySelector('.artist-availability').append(li);
+    } else {
+      available_times.forEach(available_time => {
+        const li = document.createElement('li');
+        li.innerHTML = `${available_time.date} ${available_time.time_from} - ${available_time.time_to}`;
+        artistInfo.querySelector('.artist-availability').append(li);
+      })
+    }
+  }
   document.getElementById('create-show-form').onsubmit = (e) => {
     document.getElementById('create-show-form-wrapper').className += ' is-loading';
   }
+  document.querySelector('[name="artist_id"]').onchange = (e) => {
+    const artistId = e.target.value;
+    if (artistId !== '') {
+      fetch(`/artists/${e.target.value}/available_times?seeking_venue_only=true`)
+        .then(res => res.json())
+        .then((res) => {
+          renderArtistAvailability(res)
+        })
+        .catch(e => {
+          console.log(e);
+          showErrorMsg();
+        })
+    } else {
+      renderArtistAvailability()
+    }
+  };
+
+  document.querySelector('[name="artist_id"]').dispatchEvent(new Event('change'));
 </script>
 {% endblock %}

@@ -154,6 +154,16 @@ p > i {
 .description {
   max-width: 450px;
 }
+.available-times {
+  margin-top: 15px;
+}
+.available-times ul {
+  font-weight: normal;
+  padding: 0 20px;
+}
+.available-times ul li a {
+  margin-left: 8px;
+}
 .genres {
   margin-bottom: 15px;
 }
